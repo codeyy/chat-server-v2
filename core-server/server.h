@@ -1,11 +1,12 @@
 #include "client.h"
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <iostream>
 #include <unordered_map>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <cstring>
 
 #pragma once
@@ -27,17 +28,19 @@ class Server {
 
     public: 
         Server() {
+            std::cout << "Starting Server\n";
             struct sockaddr_in server_addr;
+            memset(&server_addr, 0 , sizeof(server_addr));
+
             server_addr.sin_family = AF_INET;
             server_addr.sin_addr.s_addr = INADDR_ANY;
+            std::cout<<inet_ntoa(server_addr.sin_addr) << std::endl;
             server_addr.sin_port = htons(8080);
-            memset(&server_addr, 0 , sizeof(server_addr));
             
             struct sockaddr_in client_addr;
             socklen_t addr_len = sizeof(client_addr);
             memset(&client_addr, 0, addr_len);
                         
-            std::cout<< 1;
             int listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
             if (listen_sockfd < 0)
             {
@@ -52,7 +55,6 @@ class Server {
             ev.events = EPOLLIN | EPOLLET;
             ev.data.fd = listen_sockfd;
             epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sockfd, &ev);
-            std::cout<< 2;
 
             while(true){
                 while(true) {
@@ -67,44 +69,44 @@ class Server {
                         std::cerr << "epoll_wait error: " << e.what() << std::endl;
                     }
                 }
-                
             
                 for (int n =0; n <nfds; n++){
-                    int curr_fd = events[n].data.fd;
-                    for(;;) {
-                        int client_fd = accept(listen_sockfd, (struct sockaddr *) &client_addr, &addr_len);
-                        if (client_fd <0){
-                            if (errno == EAGAIN || errno == EWOULDBLOCK){
-                                break;
-                            }
-                            break;
-                        }
-                        set_nonblocking(client_fd);
-                    
-                        clients[client_fd] = Client();
-                        std::cout <<client_fd;
-                        epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fd, &ev); 
-                    }
-                    if (curr_fd == listen_sockfd) {
-
+                    if (events[n].data.fd == listen_sockfd) {
                         for(;;) {
+                            
+                            std::cout<<";;;;" << std::endl;
+                            std::cout << events[n].data.fd << ".,.,.,.," << listen_sockfd << std::endl;
+                            std::cout<<";;;;" << std::endl;
+
                             int client_fd = accept(listen_sockfd, (struct sockaddr *) &client_addr, &addr_len);
-                            if (client_fd == -1) {
-                                if (errno == EAGAIN || errno == EWOULDBLOCK) break; // No more clients
-                                break; // Error occurred
+                            if (client_fd <0){
+                                if (errno == EAGAIN || errno == EWOULDBLOCK){
+                                    break;
+                                }
+                                break;
+                            }else {
+                                std::cout << "Connection accepted ip: " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << std::endl;
+                                
+                                set_nonblocking(client_fd);
+                                
+                                clients.insert({client_fd, Client()});
+                                std::cout <<client_fd << " added to clients map" << std::endl;
+                                std::cout << "::::" << std::endl;
+                                std::cout << (client_fd == listen_sockfd) << std::endl;
+                                std::cout << "::::" << std::endl;
+                                
+                                struct epoll_event c_ev;
+                                c_ev.events = EPOLLIN | EPOLLET;
+                                c_ev.data.fd = client_fd;
+
+                                epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fd, &c_ev);
                             }
-                            set_nonblocking(client_fd);
-                    
-                            clients[client_fd] = Client();
-                            epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fd, &ev); 
                         }
                     } else {
-                        std::cout<<"handle data";
+                        auto curr_fd = events[n].data.fd;
+                         
                     }
                 }
             }
-                }
-            
-            
-                
-        };         
+        }        
+    };

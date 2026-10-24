@@ -45,5 +45,9 @@ class Client {
 
         void set_username(std::string un){ username = un;}
         void set_ip(std::string ip){ ip_address = ip;}
+
+        int read_data(int sockfd) {
+            ssize_t bytes_recvd = recv(sockfd, read_buffer, sizeof(read_buffer)) 
+        }
     
 };
