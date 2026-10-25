@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <fcntl.h>
 #include <cstring>
+#include <memory>
+
 
 #pragma once
 
@@ -23,6 +25,10 @@ class Server {
         void set_nonblocking(auto snfd) {
             int flags = fcntl(snfd, F_GETFL, 0);
             fcntl(snfd, F_SETFL, flags | O_NONBLOCK);
+        }
+        std::vector<char> parser(std::string msg){ //we'll make is run on another thread later
+            //msg protocol : >recepient|message|sender|
+            
         }
     
 
@@ -96,13 +102,13 @@ class Server {
                         int curr_fd = events[n].data.fd;
                         auto c = clients.find(curr_fd);
                         if (c != clients.end()) {
-                            int bytes_read = c->second.read_data(curr_fd);
-                            if (bytes_read <= 0) {
+                            auto resrecv = c->second.read_data(curr_fd);
+                            if ((*resrecv).empty()) {
                                 epoll_ctl(epollfd, EPOLL_CTL_DEL, curr_fd, nullptr);
                                 clients.erase(c);
                                 close(curr_fd);
                             } else {
-                                std::cout << "Received data from client " << curr_fd << ": " << std::string(c->second.read_buffer.begin(), c->second.read_buffer.end()) << std::endl;
+                                
                             }
                         } else {
                             std::cerr << "Client not found for fd: " << curr_fd << std::endl;

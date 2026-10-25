@@ -5,17 +5,22 @@
 #include <vector>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <cstring>
+#include <cstdint>
+#include <arpa/inet.h>
 
 
 
 class Client {
     private :
-        int sockfd;
-
-        
-        std::string username;
-        std::string ip_address;
-        int state; // 0 - disconnected, 1 - connected, 2 - authenticated
+    int sockfd;
+    
+    std::vector<char> read_buffer;
+    //std::vector<char> write_buffer;
+    
+    std::string username;
+    std::string ip_address;
+    int state; // 0 - disconnected, 1 - connected, 2 - authenticated
         
         
     public :
@@ -31,10 +36,6 @@ class Client {
             }
         }
 
-        std::vector<char> read_buffer;
-        std::vector<char> write_buffer;
-
-
         auto get_socket() const -> int {
             return sockfd;
         }   
@@ -45,23 +46,42 @@ class Client {
             return ip_address;
         }
 
+
         void set_username(std::string un){ username = un;}
         void set_ip(std::string ip){ ip_address = ip;}
-        int read_data(int sockfd) {
-            ssize_t bytes_recvd;
-            char buffer[1024];
 
-            while (true) {
-                bytes_recvd = recv(sockfd, buffer, sizeof(buffer), 0);
-                if (bytes_recvd < 0) {
-                    std::cerr << "Error reading data" << std::endl;
+        auto read_data(int sockfd) {
+            read_buffer.clear();
+            
+            
+            uint32_t target_bytes = 4;
+            
+            while (target_bytes > 0){
+                char buffer[4];
+                int res = recv(sockfd, buffer, target_bytes, 0);
+                if (res <= 0){
+                    return -1;
                 }
-                read_buffer.insert(read_buffer.end(), buffer, buffer + bytes_recvd);
-                if (bytes_recvd < sizeof(buffer)) {
-                    break; // No more data to read
-                }
+                read_buffer.insert(read_buffer.end(), buffer, buffer + res);
+                target_bytes -= res;
+                
             }
-            return bytes_recvd;
+            
+            std::memcpy(&target_bytes, read_buffer.data(), sizeof(target_bytes));
+            read_buffer.clear();
+            std::vector<char> buffer(target_bytes);
+            while (0 < target_bytes){
+                int res = recv(sockfd, buffer.data(), target_bytes, 0);
+                if (res <= 0){
+                    break;
+                }
+                read_buffer.insert(read_buffer.end(), buffer.begin(), buffer.begin() + res);
+                target_bytes-=res;
+                buffer.resize(target_bytes);
+            }
+            read_buffer.insert(read_buffer.end(), '\0' );
+
+            return 0;
         }
     
 };
