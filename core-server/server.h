@@ -72,28 +72,18 @@ class Server {
             
                 for (int n =0; n <nfds; n++){
                     if (events[n].data.fd == listen_sockfd) {
-                        for(;;) {
-                            
-                            std::cout<<";;;;" << std::endl;
-                            std::cout << events[n].data.fd << ".,.,.,.," << listen_sockfd << std::endl;
-                            std::cout<<";;;;" << std::endl;
-
+                        for(;;){
                             int client_fd = accept(listen_sockfd, (struct sockaddr *) &client_addr, &addr_len);
                             if (client_fd <0){
                                 if (errno == EAGAIN || errno == EWOULDBLOCK){
                                     break;
                                 }
                                 break;
-                            }else {
-                                std::cout << "Connection accepted ip: " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << std::endl;
-                                
+                            }else {                                
                                 set_nonblocking(client_fd);
                                 
                                 clients.insert({client_fd, Client()});
-                                std::cout <<client_fd << " added to clients map" << std::endl;
-                                std::cout << "::::" << std::endl;
                                 std::cout << (client_fd == listen_sockfd) << std::endl;
-                                std::cout << "::::" << std::endl;
                                 
                                 struct epoll_event c_ev;
                                 c_ev.events = EPOLLIN | EPOLLET;
@@ -103,8 +93,20 @@ class Server {
                             }
                         }
                     } else {
-                        auto curr_fd = events[n].data.fd;
-                         
+                        int curr_fd = events[n].data.fd;
+                        auto c = clients.find(curr_fd);
+                        if (c != clients.end()) {
+                            int bytes_read = c->second.read_data(curr_fd);
+                            if (bytes_read <= 0) {
+                                epoll_ctl(epollfd, EPOLL_CTL_DEL, curr_fd, nullptr);
+                                clients.erase(c);
+                                close(curr_fd);
+                            } else {
+                                std::cout << "Received data from client " << curr_fd << ": " << std::string(c->second.read_buffer.begin(), c->second.read_buffer.end()) << std::endl;
+                            }
+                        } else {
+                            std::cerr << "Client not found for fd: " << curr_fd << std::endl;
+                        } 
                     }
                 }
             }

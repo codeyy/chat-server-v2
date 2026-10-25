@@ -12,16 +12,14 @@ class Client {
     private :
         int sockfd;
 
-        std::vector<char> read_buffer;
-        std::vector<char> write_buffer;
-
+        
         std::string username;
         std::string ip_address;
         int state; // 0 - disconnected, 1 - connected, 2 - authenticated
-
-
+        
+        
     public :
-        Client(): sockfd(-1), ip_address(ip_address), username(username), state(0) {
+        Client(): sockfd(-1){
             sockfd = socket(AF_INET, SOCK_STREAM, 0);
             if (sockfd < 0) {
                 std::cerr << "Error creating socket" << std::endl;
@@ -32,6 +30,10 @@ class Client {
                 close(sockfd);
             }
         }
+
+        std::vector<char> read_buffer;
+        std::vector<char> write_buffer;
+
 
         auto get_socket() const -> int {
             return sockfd;
@@ -45,9 +47,21 @@ class Client {
 
         void set_username(std::string un){ username = un;}
         void set_ip(std::string ip){ ip_address = ip;}
-
         int read_data(int sockfd) {
-            ssize_t bytes_recvd = recv(sockfd, read_buffer, sizeof(read_buffer)) 
+            ssize_t bytes_recvd;
+            char buffer[1024];
+
+            while (true) {
+                bytes_recvd = recv(sockfd, buffer, sizeof(buffer), 0);
+                if (bytes_recvd < 0) {
+                    std::cerr << "Error reading data" << std::endl;
+                }
+                read_buffer.insert(read_buffer.end(), buffer, buffer + bytes_recvd);
+                if (bytes_recvd < sizeof(buffer)) {
+                    break; // No more data to read
+                }
+            }
+            return bytes_recvd;
         }
     
 };
