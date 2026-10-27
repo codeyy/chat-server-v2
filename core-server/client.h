@@ -13,17 +13,10 @@
 
 class Client {
     private :
-    int sockfd;
+    int sockfd;    
     
-    std::vector<char> read_buffer;
-    //std::vector<char> write_buffer;
-    
-    std::string username;
-    std::string ip_address;
-    int state; // 0 - disconnected, 1 - connected, 2 - authenticated
-        
-        
     public :
+        std::string read_buffer;      
         Client(): sockfd(-1){
             sockfd = socket(AF_INET, SOCK_STREAM, 0);
             if (sockfd < 0) {
@@ -38,19 +31,9 @@ class Client {
 
         auto get_socket() const -> int {
             return sockfd;
-        }   
-        std::string get_username() const {
-            return username;
-        }
-        std::string get_ip() const {
-            return ip_address;
         }
 
-
-        void set_username(std::string un){ username = un;}
-        void set_ip(std::string ip){ ip_address = ip;}
-
-        auto read_data(int sockfd) {
+        short read_data(int sockfd) {
             read_buffer.clear();
             
             
@@ -68,6 +51,7 @@ class Client {
             }
             
             std::memcpy(&target_bytes, read_buffer.data(), sizeof(target_bytes));
+            target_bytes = ntohl(target_bytes);
             read_buffer.clear();
             std::vector<char> buffer(target_bytes);
             while (0 < target_bytes){

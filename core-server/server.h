@@ -20,15 +20,24 @@ class Server {
         int listen_sockfd, epollfd, conn_sockfd, nfds;
 
         std::unordered_map<int, Client> clients;
+        std::unordered_map<std::string, int> usernames;
         char buffer[1024];
 
         void set_nonblocking(auto snfd) {
             int flags = fcntl(snfd, F_GETFL, 0);
             fcntl(snfd, F_SETFL, flags | O_NONBLOCK);
         }
-        std::vector<char> parser(std::string msg){ //we'll make is run on another thread later
-            //msg protocol : >recepient|message|sender|
+        std::vector<std::string> parser(std::string msg){ //we'll make it run on a separate thread later
+            //msg protocol : recepient>message>sender>
+            std::vector<std::string> parsed_msg(3);
             
+            int store_index=0;
+            for (int i = 0; i < msg.size(); i++){
+                if(msg[i] != '>'){parsed_msg[store_index] += msg[i];
+                }else{store_index++;}
+                if(store_index >= 3){break;}
+            }
+            return parsed_msg;
         }
     
 
@@ -38,21 +47,32 @@ class Server {
             struct sockaddr_in server_addr;
             memset(&server_addr, 0 , sizeof(server_addr));
 
-            server_addr.sin_family = AF_INET;
-            server_addr.sin_addr.s_addr = INADDR_ANY;
-            std::cout<<inet_ntoa(server_addr.sin_addr) << std::endl;
-            server_addr.sin_port = htons(8080);
-            
-            struct sockaddr_in client_addr;
-            socklen_t addr_len = sizeof(client_addr);
-            memset(&client_addr, 0, addr_len);
-                        
+
             int listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
             if (listen_sockfd < 0)
             {
                 perror("socket");
                 exit(EXIT_FAILURE);
             }
+
+
+            int opt = 1;
+            if (setsockopt(listen_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+                std::cerr << "setsockopt(SO_REUSEADDR) failed\n";
+                close(listen_sockfd);
+                exit(EXIT_FAILURE);
+            }
+            
+
+            server_addr.sin_family = AF_INET;
+            server_addr.sin_addr.s_addr = INADDR_ANY;
+            server_addr.sin_port = htons(8080);
+            std::cout<<inet_ntoa(server_addr.sin_addr) <<  std::endl;
+            
+            struct sockaddr_in client_addr;
+            socklen_t addr_len = sizeof(client_addr);
+            memset(&client_addr, 0, addr_len);
+                        
 
             bind(listen_sockfd, (const struct sockaddr*)&server_addr, sizeof(server_addr));
             listen(listen_sockfd, SOMAXCONN);
@@ -89,7 +109,6 @@ class Server {
                                 set_nonblocking(client_fd);
                                 
                                 clients.insert({client_fd, Client()});
-                                std::cout << (client_fd == listen_sockfd) << std::endl;
                                 
                                 struct epoll_event c_ev;
                                 c_ev.events = EPOLLIN | EPOLLET;
@@ -100,15 +119,27 @@ class Server {
                         }
                     } else {
                         int curr_fd = events[n].data.fd;
-                        auto c = clients.find(curr_fd);
-                        if (c != clients.end()) {
-                            auto resrecv = c->second.read_data(curr_fd);
-                            if ((*resrecv).empty()) {
+                        if (clients.contains(curr_fd)) {
+                            auto ClientO = clients[curr_fd];
+                            ClientO.read_data(curr_fd);
+                            if (ClientO.read_buffer.empty()) {
                                 epoll_ctl(epollfd, EPOLL_CTL_DEL, curr_fd, nullptr);
-                                clients.erase(c);
+                                clients.erase(curr_fd);
                                 close(curr_fd);
                             } else {
+                                std::vector<std::string> received = parser(ClientO.read_buffer);
                                 
+                                if ((received[0]) == "Server"){
+                                    if(!usernames.contains(received[1])){usernames[received[1]] = curr_fd;}
+                                }else{
+                                    if(usernames.contains(received[0])){
+                                        auto recp_fd = usernames[received[0]];
+                                        std::string final_msg = received[0] + ">" + received[1] + ">" + received[2] + ">";
+                                        ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                    }else{
+                                        
+                                    }
+                                }
                             }
                         } else {
                             std::cerr << "Client not found for fd: " << curr_fd << std::endl;
@@ -116,5 +147,14 @@ class Server {
                     }
                 }
             }
-        }        
+        }
+        
+        ~Server(){
+            for (const auto& [key, value] : usernames){
+                close(value);
+            }
+            clients.clear();
+            usernames.clear();
+            std::cout<< "Server shutdown completed successfully";
+        }
     };
