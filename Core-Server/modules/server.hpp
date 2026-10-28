@@ -11,6 +11,7 @@
 #include <memory>
 
 
+
 #pragma once
 
 class Server {
@@ -107,8 +108,9 @@ class Server {
                                 break;
                             }else {                                
                                 set_nonblocking(client_fd);
-                                
-                                clients.insert({client_fd, Client()});
+                                Client obj_inst = Client(client_fd);
+
+                                clients.insert({client_fd, std::move(obj_inst)});
                                 
                                 struct epoll_event c_ev;
                                 c_ev.events = EPOLLIN | EPOLLET;
@@ -120,7 +122,7 @@ class Server {
                     } else {
                         int curr_fd = events[n].data.fd;
                         if (clients.contains(curr_fd)) {
-                            auto ClientO = clients[curr_fd];
+                            Client& ClientO = clients.at(curr_fd);
                             ClientO.read_data(curr_fd);
                             if (ClientO.read_buffer.empty()) {
                                 epoll_ctl(epollfd, EPOLL_CTL_DEL, curr_fd, nullptr);
@@ -128,16 +130,30 @@ class Server {
                                 close(curr_fd);
                             } else {
                                 std::vector<std::string> received = parser(ClientO.read_buffer);
-                                
                                 if ((received[0]) == "Server"){
-                                    if(!usernames.contains(received[1])){usernames[received[1]] = curr_fd;}
+                                    if (received[2] == "_"){
+                                        if(!usernames.contains(received[1])){
+                                            usernames[received[1]] = curr_fd;
+                                            auto recp_fd = curr_fd;
+                                            std::string final_msg = received[1] + ">" + "username configured successfully" + ">" + "Server" + ">";
+                                            ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                        }else{
+                                            auto recp_fd = curr_fd;
+                                            std::string final_msg;
+                                            if(usernames[received[1]] != curr_fd){final_msg = received[2] + ">" + "username already exists" + ">" + "Server" + ">";}
+                                            else{final_msg = received[1] + ">" + "its YOUR username" + ">" + "Server" + ">";}
+                                            ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                        }
+                                    }else{std::string final_msg = received[2]+received[1]+received[0]; send(usernames[received[2]], final_msg.c_str(), final_msg.length(), 0);}
                                 }else{
                                     if(usernames.contains(received[0])){
                                         auto recp_fd = usernames[received[0]];
                                         std::string final_msg = received[0] + ">" + received[1] + ">" + received[2] + ">";
                                         ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }else{
-                                        
+                                        auto recp_fd = curr_fd;
+                                        std::string final_msg = received[2] + ">" + "recipient: " + received[1] + "Doesn't exist" + ">" + "Server" + ">";
+                                        ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }
                                 }
                             }

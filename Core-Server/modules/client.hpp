@@ -16,13 +16,31 @@ class Client {
     int sockfd;    
     
     public :
-        std::string read_buffer;      
-        Client(): sockfd(-1){
-            sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        std::string read_buffer; 
+
+        Client(int sock): sockfd(sock){
             if (sockfd < 0) {
                 std::cerr << "Error creating socket" << std::endl;
             }
         }
+        Client(const Client &source) = delete;
+        Client& operator=(const Client &source) = delete;
+
+        Client(Client&& source) noexcept {
+            sockfd = source.sockfd;
+            read_buffer = std::move(source.read_buffer);
+            source.sockfd = -1;
+        }
+        Client& operator=(Client&& source) noexcept {
+            if (this != &source){
+                if (sockfd >=0) close(sockfd);
+                sockfd = source.sockfd;
+                read_buffer = std::move(source.read_buffer);
+                source.sockfd = -1;
+            }
+            return *this;
+        }
+        
         ~Client() {
             if (sockfd >= 0) {
                 close(sockfd);
