@@ -45,6 +45,19 @@ class Server {
     public: 
         Server() {
             std::cout << "Starting Server\n";
+            startup();
+            }
+        
+        ~Server(){
+            for (const auto& [key, value] : usernames){
+                close(value);
+            }
+            clients.clear();
+            usernames.clear();
+            std::cout<< "Server shutdown completed successfully";
+        }
+
+        void startup(){
             struct sockaddr_in server_addr;
             memset(&server_addr, 0 , sizeof(server_addr));
 
@@ -83,6 +96,7 @@ class Server {
             ev.data.fd = listen_sockfd;
             epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sockfd, &ev);
 
+            std::cout << "Usercount: " << std::endl;
             while(true){
                 while(true) {
                     try {
@@ -112,11 +126,14 @@ class Server {
 
                                 clients.insert({client_fd, std::move(obj_inst)});
                                 
+                                
                                 struct epoll_event c_ev;
                                 c_ev.events = EPOLLIN | EPOLLET;
                                 c_ev.data.fd = client_fd;
 
                                 epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fd, &c_ev);
+                                
+                                std::cout << "\x1b[2K\r" << clients.size() << std::flush;
                             }
                         }
                     } else {
@@ -166,14 +183,5 @@ class Server {
                     }
                 }
             }
-        }
-        
-        ~Server(){
-            for (const auto& [key, value] : usernames){
-                close(value);
-            }
-            clients.clear();
-            usernames.clear();
-            std::cout<< "Server shutdown completed successfully";
         }
     };
