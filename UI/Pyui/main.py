@@ -64,7 +64,7 @@ async def send_messages(writer: asyncio.StreamWriter):
                 message = header + payload
                 writer.write(message)
                 await writer.drain()  # Ensures data is flushed to the network
-                print(f"[Sent]: {message.strip()}")
+                print(f"Sent! 👍\n")
             except asyncio.CancelledError:
                 pass
 
@@ -72,26 +72,30 @@ async def send_messages(writer: asyncio.StreamWriter):
 async def set_username(writer, reader):
     global username
 
-    while True:
-        inp = input("Enter Desired Username: ")
+    try:
+        while True:
+            inp = input("Enter Desired Username: ")
 
-        payload = ("Server>" +inp+ ">_>").encode("utf-8")
+            payload = ("Server>" +inp+ ">_>").encode("utf-8")
 
-        header = struct.pack('!I', len(payload))
+            header = struct.pack('!I', len(payload))
 
-        writer.write(header+payload)
-        await writer.drain()
+            writer.write(header+payload)
+            await writer.drain()
 
-        data = await reader.read(1024)
-        recvd = data.decode().strip().split(">")
-        
-        if "username configured successfully" == recvd[1] or "its YOUR username" in recvd[1]:
-            username = recvd[0]
-            print(f"username set to: {username}")
-            return username
-        else:
-            print(recvd[1]+ "\nretry:\n")
-            continue
+            data = await reader.read(1024)
+            recvd = data.decode().strip().split(">")
+
+            if "username configured successfully" == recvd[1] or "its YOUR username" in recvd[1]:
+                username = recvd[0]
+                print(f"username set to: {username}")
+                return username
+            else:
+                print(recvd[1]+ "\nretry:\n")
+                continue
+    except Exception:
+        print("Connection terminated or a fatal error occured. Try again later.\n and please report this issue if remained unsolved\n" \
+                " at https://github.com/codeyy/chat-server-v2/issues \n")
 
 
 
@@ -104,7 +108,15 @@ async def main():
     server_port = 8080
     
     print(f"Connecting to {server_ip}:{server_port}...")
-    reader, writer = await asyncio.open_connection(server_ip, server_port)
+    try:
+        reader, writer = await asyncio.open_connection(server_ip, server_port)
+    except ConnectionRefusedError:
+        print("Connection refused by the Server.\nPlease try again later")
+        sys.exit()
+    except Exception as e:
+        print("an unexpected error occured. Try again later.\n and please report this issue if remained unsolved\n" \
+                " at https://github.com/codeyy/chat-server-v2/issues \n")
+        
     print("Connected!")
 
     # Run both tasks concurrently on the single main thread

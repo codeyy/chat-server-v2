@@ -144,7 +144,10 @@ class Server {
                                             else{final_msg = received[1] + ">" + "its YOUR username" + ">" + "Server" + ">";}
                                             ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                         }
-                                    }else{std::string final_msg = received[2]+received[1]+received[0]; send(usernames[received[2]], final_msg.c_str(), final_msg.length(), 0);}
+                                    }else{
+                                        std::string final_msg = received[2]+received[1]+received[0]; 
+                                        ssize_t bytes_sent = send(usernames[received[2]], final_msg.c_str(), final_msg.length(), 0);
+                                    }                                
                                 }else{
                                     if(usernames.contains(received[0])){
                                         auto recp_fd = usernames[received[0]];
@@ -152,7 +155,7 @@ class Server {
                                         ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }else{
                                         auto recp_fd = curr_fd;
-                                        std::string final_msg = received[2] + ">" + "recipient: " + received[1] + "Doesn't exist" + ">" + "Server" + ">";
+                                        std::string final_msg = received[2] + ">" + "recipient: \"" + received[0] + "\" Doesn't exist" + ">" + "Server" + ">";
                                         ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }
                                 }
