@@ -1,4 +1,4 @@
-# AresNexus v1.0.0
+# NexusForge v1.0.0
 
 
 A chating system with high performance server with sleek and minimalist Terminal UI. 
