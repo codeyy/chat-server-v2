@@ -1,86 +1,102 @@
-import asyncio
+import sys
 import struct
+import asyncio
+from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
 
 
-username_success_flag = 0
+username = "_"
 
-
-def ask_for_user(receipient):
-    username = input("Enter your username: ")
-    
-    payload = (receipient+ ">" +username+ ">_>").encode("utf-8")
-    header = struct.pack('!I', len(payload))
-
-    return header+payload
-
-async def receive_messages(reader):
-    """Continuously listens for incoming data."""
-    global username_success_flag
+async def receive_messages(reader: asyncio.StreamReader):
+    """
+    Listens for data from the server.
+    Because of patch_stdout(), standard print() statements here 
+    will cleanly push the user's active typing line down.
+    """
     try:
         while True:
             data = await reader.read(1024)
             if not data:
-                print("Server closed the connection.")
+                print("\n[System] Connection closed by the server.")
                 break
-            recvd = data.decode().strip().split(">")
-            for i in recvd: print(i)
-            if recvd[2] == "Server" and recvd[0] == "_":
-                if "username already exists" in recvd[1]:
-                    username_success_flag = -1
-                elif "username configured successfully" == recvd[1] or "its YOUR username" in recvd[1]:
-                    username_success_flag= 1
-                else:
-                    pass
+            
+            message = data.decode('utf-8').strip().split(">")
 
-                
-            print(f"\n[Received]: {recvd}")
-    except asyncio.CancelledError:
-        pass  # Clean exit when task is cancelled
-
-async def send_messages(writer):
-    """Periodically sends data or handles an outbound queue."""
-    global username_success_flag
-    
-    receipient = "Server"
-    username = ""
-
-    setup_payload = ask_for_user(receipient=receipient)
-    while(True):
-        writer.write(setup_payload)
-        await writer.drain()
-        if username_success_flag == 1:
-            username = setup_payload.decode().split(">")[1]
-            print(f"your username: '{username}' saved successfully ")
-            break
-        await asyncio.sleep(0.5)
-        if username_success_flag == -1:
-            print("username already exists. Try something else")
-            setup_payload = ask_for_user
-            username_success_flag = 0
-
-    
-
-    try:
-        counter = 0
-        while True:
-            inp =  await asyncio.to_thread(input, ":} ")
-
-            if "@" in inp:
-                receipient = inp[1:]
-                continue
-
-            payload = (receipient+ ">" +inp+ ">" +username+ ">").encode("utf-8")
-            print 
-    
-            header = struct.pack('!I', len(payload))
-
-            message = header + payload
-            writer.write(message)
-            await writer.drain()  # Ensures data is flushed to the network
-            print(f"[Sent]: {message.strip()}")
-            counter += 1
+            if message[0] == username:
+                print(f"\n[from {message[2]}]  {message[1]}")
+            
     except asyncio.CancelledError:
         pass
+    except Exception as e:
+        print(f"\n[Error] Connection issue: {e}")
+        sys.exit()
+
+
+
+async def send_messages(writer: asyncio.StreamWriter):
+    """
+    Handles the asynchronous prompt loop for user input.
+    """
+    session = PromptSession()
+
+    receipient = ""
+    print(username)
+    with patch_stdout():
+        while True:
+            try:
+                inp =  await session.prompt_async("{: ")
+
+                cleaned_input = inp.strip()
+
+                if "@" in cleaned_input:
+                    receipient = cleaned_input[1:]
+                    print("receipient is "+receipient)
+                    continue
+                elif receipient == "": 
+                    print("please specify a receipient with @ symbol folowed by the receipient's username and enter.")
+                    continue
+
+                payload = (receipient+ ">" +cleaned_input+ ">" +username+ ">").encode("utf-8")
+                
+
+                header = struct.pack('!I', len(payload))
+
+                message = header + payload
+                writer.write(message)
+                await writer.drain()  # Ensures data is flushed to the network
+                print(f"[Sent]: {message.strip()}")
+            except asyncio.CancelledError:
+                pass
+
+
+async def set_username(writer, reader):
+    global username
+
+    while True:
+        inp = input("Enter Desired Username: ")
+
+        payload = ("Server>" +inp+ ">_>").encode("utf-8")
+
+        header = struct.pack('!I', len(payload))
+
+        writer.write(header+payload)
+        await writer.drain()
+
+        data = await reader.read(1024)
+        recvd = data.decode().strip().split(">")
+        
+        if "username configured successfully" == recvd[1] or "its YOUR username" in recvd[1]:
+            username = recvd[0]
+            print(f"username set to: {username}")
+            return username
+        else:
+            print(recvd[1]+ "\nretry:\n")
+            continue
+
+
+
+
+
 
 async def main():
     # Connect to the server
@@ -93,6 +109,8 @@ async def main():
 
     # Run both tasks concurrently on the single main thread
     # asyncio.gather schedules both loops to run cooperatively
+    rs = await set_username(writer, reader)
+
     try:
         await asyncio.gather(
             receive_messages(reader),
@@ -110,3 +128,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nProgram stopped.")
+
+
