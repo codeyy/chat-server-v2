@@ -33,7 +33,7 @@ class Server {
             std::vector<std::string> parsed_msg(3);
             
             int store_index=0;
-            for (int i = 0; i < msg.size(); i++){
+            for (int i = 0; i < int(msg.size()); i++){
                 if(msg[i] != '>'){parsed_msg[store_index] += msg[i];
                 }else{store_index++;}
                 if(store_index >= 3){break;}
@@ -136,27 +136,27 @@ class Server {
                                             usernames[received[1]] = curr_fd;
                                             auto recp_fd = curr_fd;
                                             std::string final_msg = received[1] + ">" + "username configured successfully" + ">" + "Server" + ">";
-                                            ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                            send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                         }else{
                                             auto recp_fd = curr_fd;
                                             std::string final_msg;
                                             if(usernames[received[1]] != curr_fd){final_msg = received[2] + ">" + "username already exists" + ">" + "Server" + ">";}
                                             else{final_msg = received[1] + ">" + "its YOUR username" + ">" + "Server" + ">";}
-                                            ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                            send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                         }
                                     }else{
                                         std::string final_msg = received[2]+received[1]+received[0]; 
-                                        ssize_t bytes_sent = send(usernames[received[2]], final_msg.c_str(), final_msg.length(), 0);
+                                        send(usernames[received[2]], final_msg.c_str(), final_msg.length(), 0);
                                     }                                
                                 }else{
                                     if(usernames.contains(received[0])){
                                         auto recp_fd = usernames[received[0]];
                                         std::string final_msg = received[0] + ">" + received[1] + ">" + received[2] + ">";
-                                        ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                        send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }else{
                                         auto recp_fd = curr_fd;
                                         std::string final_msg = received[2] + ">" + "recipient: \"" + received[0] + "\" Doesn't exist" + ">" + "Server" + ">";
-                                        ssize_t bytes_sent = send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
+                                        send(recp_fd, final_msg.c_str(), final_msg.length(), 0);
                                     }
                                 }
                             }
