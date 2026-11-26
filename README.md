@@ -1,7 +1,7 @@
 # NexusForge v1.0.0
 
 
-A chating system with high performance server with sleek and minimalist Terminal UI. 
+A chating system with high performance server and minimalist Terminal UI. 
 
 ---
 
