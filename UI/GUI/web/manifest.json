@@ -1,0 +1,11 @@
+{
+    "name": "NexusForge Chat",
+    "short_name": "NexusForge",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0D1117",
+    "theme_color": "#58A6FF",
+    "description": "Cross-platform GUI Client for NexusForge Chat Server v2",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false
+}

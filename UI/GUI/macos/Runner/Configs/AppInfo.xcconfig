@@ -1,0 +1,3 @@
+PRODUCT_NAME = NexusForge
+PRODUCT_BUNDLE_IDENTIFIER = com.nexusforge.gui
+PRODUCT_COPYRIGHT = Copyright © 2026 NexusForge. All rights reserved.
